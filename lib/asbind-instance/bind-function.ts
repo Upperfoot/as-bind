@@ -30,7 +30,10 @@ export function bindImportFunction(
   // Create a wrapper function that applies the correct converter function to arguments and
   // return value respectively.
   return function (...args) {
-    if (asbindInstance.exports["asyncify_get_state"]() === 2 /* Rewinding */) {
+    if (
+      asbindInstance.isAsyncifyModule &&
+      (asbindInstance.exports as any).asyncify_get_state() === 2 /* Rewinding */
+    ) {
       (asbindInstance.loadedModule.exports as any).asyncify_stop_rewind();
       asbindInstance.loadedModule.exports.__unpin(
         asbindInstance.asyncifyState.ptr
@@ -134,7 +137,8 @@ export function bindExportFunction(
       const result = exportedFunction(...args);
       pinnedArgs.forEach(arg => asbindInstance.exports.__unpin(arg));
       if (
-        (asbindInstance.exports as any).asyncify_get_state() === 0 /* Normal */
+        !asbindInstance.isAsyncifyModule ||
+        (asbindInstance.exports as any).asyncify_get_state() === 0
       ) {
         return returnValueConverterFunction(
           asbindInstance,

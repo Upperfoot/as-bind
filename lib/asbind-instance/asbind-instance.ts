@@ -96,7 +96,7 @@ export default class AsbindInstance {
     if (!this.isAsyncifyModule) {
       // If this module wasn’t built with Ayncify, we mock
       // the asyncify state function to return that we are in “normal” mode.
-      this.exports["asyncify_get_state"] = () => 0;
+      (this.exports as any).asyncify_get_state = () => 0;
     }
   }
 
