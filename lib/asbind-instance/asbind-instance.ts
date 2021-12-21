@@ -53,6 +53,9 @@ export default class AsbindInstance {
   typeDescriptor: TypeDef;
   module: WebAssembly.Module;
   loadedModule: WebAssemblyLoaderResult;
+  asyncifyStorageSize: number = 8 * 1024;
+  isAsyncifyModule: Boolean = false;
+  asyncifyState: { ptr: number; value?: any; promise?: Promise<any> };
 
   getTypeId(typeName: string) {
     if (typeName in this.typeDescriptor.typeIds) {
@@ -82,6 +85,18 @@ export default class AsbindInstance {
       throw new Error(
         "The AssemblyScript wasm module was not built with the as-bind transform."
       );
+    }
+
+    this.isAsyncifyModule = Boolean(
+      WebAssembly.Module.exports(this.module).find(
+        exp => exp.name === "asyncify_start_unwind"
+      )
+    );
+
+    if (!this.isAsyncifyModule) {
+      // If this module wasn’t built with Ayncify, we mock
+      // the asyncify state function to return that we are in “normal” mode.
+      this.exports["asyncify_get_state"] = () => 0;
     }
   }
 
