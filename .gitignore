@@ -1,6 +1,6 @@
 # Project
-build/
-dist/
+# build/
+# dist/
 
 # Logs
 logs
