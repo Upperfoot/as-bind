@@ -1,17 +1,8 @@
 "use strict";
-var r = require("visitor-as/as"),
-  t = function (r, n) {
-    return (t =
-      Object.setPrototypeOf ||
-      ({ __proto__: [] } instanceof Array &&
-        function (r, t) {
-          r.__proto__ = t;
-        }) ||
-      function (r, t) {
-        for (var n in t)
-          Object.prototype.hasOwnProperty.call(t, n) && (r[n] = t[n]);
-      })(r, n);
-  };
+
+var assemblyscript = require("assemblyscript");
+var transform = require("assemblyscript/cli/transform");
+
 /*! *****************************************************************************
 Copyright (c) Microsoft Corporation.
 
@@ -25,248 +16,351 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
 LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
-***************************************************************************** */ function n(
-  r
-) {
-  var t = "function" == typeof Symbol && Symbol.iterator,
-    n = t && r[t],
-    e = 0;
-  if (n) return n.call(r);
-  if (r && "number" == typeof r.length)
+***************************************************************************** */
+
+/* global Reflect, Promise */
+var extendStatics = function (d, b) {
+  extendStatics =
+    Object.setPrototypeOf ||
+    ({
+      __proto__: []
+    } instanceof Array &&
+      function (d, b) {
+        d.__proto__ = b;
+      }) ||
+    function (d, b) {
+      for (var p in b)
+        if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p];
+    };
+
+  return extendStatics(d, b);
+};
+
+function __extends(d, b) {
+  if (typeof b !== "function" && b !== null)
+    throw new TypeError(
+      "Class extends value " + String(b) + " is not a constructor or null"
+    );
+  extendStatics(d, b);
+
+  function __() {
+    this.constructor = d;
+  }
+
+  d.prototype =
+    b === null ? Object.create(b) : ((__.prototype = b.prototype), new __());
+}
+function __values(o) {
+  var s = typeof Symbol === "function" && Symbol.iterator,
+    m = s && o[s],
+    i = 0;
+  if (m) return m.call(o);
+  if (o && typeof o.length === "number")
     return {
       next: function () {
-        return (
-          r && e >= r.length && (r = void 0), { value: r && r[e++], done: !r }
-        );
+        if (o && i >= o.length) o = void 0;
+        return {
+          value: o && o[i++],
+          done: !o
+        };
       }
     };
   throw new TypeError(
-    t ? "Object is not iterable." : "Symbol.iterator is not defined."
+    s ? "Object is not iterable." : "Symbol.iterator is not defined."
   );
 }
-function e(r, t) {
-  var n = "function" == typeof Symbol && r[Symbol.iterator];
-  if (!n) return r;
-  var e,
-    o,
-    a = n.call(r),
-    i = [];
+function __read(o, n) {
+  var m = typeof Symbol === "function" && o[Symbol.iterator];
+  if (!m) return o;
+  var i = m.call(o),
+    r,
+    ar = [],
+    e;
+
   try {
-    for (; (void 0 === t || t-- > 0) && !(e = a.next()).done; ) i.push(e.value);
-  } catch (r) {
-    o = { error: r };
+    while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+  } catch (error) {
+    e = {
+      error: error
+    };
   } finally {
     try {
-      e && !e.done && (n = a.return) && n.call(a);
+      if (r && !r.done && (m = i["return"])) m.call(i);
     } finally {
-      if (o) throw o.error;
+      if (e) throw e.error;
     }
   }
-  return i;
+
+  return ar;
 }
-function o(r, t, n) {
-  if (n || 2 === arguments.length)
-    for (var e, o = 0, a = t.length; o < a; o++)
-      (!e && o in t) ||
-        (e || (e = Array.prototype.slice.call(t, 0, o)), (e[o] = t[o]));
-  return r.concat(e || Array.prototype.slice.call(t));
+function __spreadArray(to, from, pack) {
+  if (pack || arguments.length === 2)
+    for (var i = 0, l = from.length, ar; i < l; i++) {
+      if (ar || !(i in from)) {
+        if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+        ar[i] = from[i];
+      }
+    }
+  return to.concat(ar || Array.prototype.slice.call(from));
 }
-function a(r) {
-  return r.internalName.startsWith("~");
+
+function isInternalElement(element) {
+  return element.internalName.startsWith("~");
 }
-function i(r, t) {
-  return 0 != (r.flags & t);
+function elementHasFlag(el, flag) {
+  return (el.flags & flag) != 0;
 }
-function l(r) {
-  var t, n;
-  return null !==
-    (n =
-      null === (t = r.getClass()) || void 0 === t ? void 0 : t.internalName) &&
-    void 0 !== n
-    ? n
-    : r.toString();
+function typeName(type) {
+  var _a, _b;
+  return (_b =
+    (_a = type.getClass()) === null || _a === void 0
+      ? void 0
+      : _a.internalName) !== null && _b !== void 0
+    ? _b
+    : type.toString();
 }
-function u(r) {
-  for (var t = r.parent; t !== t.parent; ) t = t.parent;
-  return t;
+function containingModule(func) {
+  var container = func.parent;
+  // Only a module is it’s own parent
+  while (container !== container.parent) {
+    container = container.parent;
+  }
+  return container;
 }
-function c(r) {
+function getFunctionTypeDescriptor(func) {
   return {
-    returnType: l(r.signature.returnType),
-    parameters: r.signature.parameterTypes.map(function (r) {
-      return l(r);
+    returnType: typeName(func.signature.returnType),
+    parameters: func.signature.parameterTypes.map(function (parameter) {
+      return typeName(parameter);
     })
   };
 }
-function s(r) {
-  var t,
-    e,
-    o,
-    a = {},
-    i = null === (o = r.getClass) || void 0 === o ? void 0 : o.call(r);
-  if (!i) return a;
-  if (
-    ((a[i.internalName] = { id: i.id, byteSize: i.nextMemoryOffset }),
-    i.typeArguments)
-  )
+function extractTypeIds(type) {
+  var e_1, _a;
+  var _b;
+  var result = {};
+  var clazz =
+    (_b = type.getClass) === null || _b === void 0 ? void 0 : _b.call(type);
+  if (!clazz) {
+    return result;
+  }
+  result[clazz.internalName] = {
+    id: clazz.id,
+    byteSize: clazz.nextMemoryOffset
+  };
+  if (clazz.typeArguments) {
     try {
-      for (var l = n(i.typeArguments), u = l.next(); !u.done; u = l.next()) {
-        var c = u.value;
-        Object.assign(a, s(c));
+      for (
+        var _c = __values(clazz.typeArguments), _d = _c.next();
+        !_d.done;
+        _d = _c.next()
+      ) {
+        var subType = _d.value;
+        Object.assign(result, extractTypeIds(subType));
       }
-    } catch (r) {
-      t = { error: r };
+    } catch (e_1_1) {
+      e_1 = { error: e_1_1 };
     } finally {
       try {
-        u && !u.done && (e = l.return) && e.call(l);
+        if (_d && !_d.done && (_a = _c["return"])) _a.call(_c);
       } finally {
-        if (t) throw t.error;
+        if (e_1) throw e_1.error;
       }
     }
-  return a;
-}
-function f(r) {
-  var t = {};
-  return (
-    Object.assign(t, s(r.signature.returnType)),
-    r.signature.parameterTypes.forEach(function (r) {
-      return Object.assign(t, s(r));
-    }),
-    t
-  );
-}
-var y = (function (l) {
-  function s() {
-    return (null !== l && l.apply(this, arguments)) || this;
   }
-  return (
-    (function (r, n) {
-      if ("function" != typeof n && null !== n)
-        throw new TypeError(
-          "Class extends value " + String(n) + " is not a constructor or null"
+  return result;
+}
+function extractTypeIdsFromFunction(func) {
+  var result = {};
+  Object.assign(result, extractTypeIds(func.signature.returnType));
+  func.signature.parameterTypes.forEach(function (paramType) {
+    return Object.assign(result, extractTypeIds(paramType));
+  });
+  return result;
+}
+var SECTION_NAME = "as-bind_bindings";
+var AsBindTransform = /** @class */ (function (_super) {
+  __extends(AsBindTransform, _super);
+  function AsBindTransform() {
+    return (_super !== null && _super.apply(this, arguments)) || this;
+  }
+  AsBindTransform.prototype.afterCompile = function (module) {
+    var e_2, _a, e_3, _b, e_4, _c;
+    var flatExportedFunctions = __spreadArray(
+      [],
+      __read(this.program.elementsByDeclaration.values()),
+      false
+    )
+      .filter(function (el) {
+        return elementHasFlag(el, assemblyscript.CommonFlags.MODULE_EXPORT);
+      })
+      .filter(function (el) {
+        return !isInternalElement(el);
+      })
+      .filter(function (el) {
+        return (
+          el.declaration.kind === assemblyscript.NodeKind.FUNCTIONDECLARATION
         );
-      function e() {
-        this.constructor = r;
-      }
-      t(r, n),
-        (r.prototype =
-          null === n
-            ? Object.create(n)
-            : ((e.prototype = n.prototype), new e()));
-    })(s, l),
-    (s.prototype.afterCompile = function (t) {
-      var l,
-        s,
-        y,
-        p,
-        d,
-        v,
-        m = o([], e(this.program.elementsByDeclaration.values()), !1)
-          .filter(function (t) {
-            return i(t, r.CommonFlags.MODULE_EXPORT);
-          })
-          .filter(function (r) {
-            return !a(r);
-          })
-          .filter(function (t) {
-            return t.declaration.kind === r.NodeKind.FUNCTIONDECLARATION;
-          }),
-        g = o([], e(this.program.elementsByDeclaration.values()), !1)
-          .filter(function (t) {
-            return i(t, r.CommonFlags.DECLARE);
-          })
-          .filter(function (r) {
-            return !a(r);
-          })
-          .filter(function (t) {
-            return t.declaration.kind === r.NodeKind.FUNCTIONDECLARATION;
-          }),
-        h = {},
-        O = {};
-      try {
-        for (var b = n(g), x = b.next(); !x.done; x = b.next()) {
-          var w = x.value;
-          if (w.instances) {
-            if (w.instances.size > 1 || !w.instances.has(""))
-              throw Error("Can’t import or export generic functions.");
-            var C = w.instances.get(""),
-              E = void 0,
-              N = void 0,
-              T = C.declaration.decorators;
-            if (T)
-              try {
-                for (
-                  var A = ((y = void 0), n(T)), S = A.next();
-                  !S.done;
-                  S = A.next()
-                ) {
-                  var _ = S.value;
-                  "external" === _.name.text &&
-                    _.args &&
-                    (_.args.length > 1
-                      ? ((E = _.args[0].value), (N = _.args[1].value))
-                      : (N = _.args[0].value));
-                }
-              } catch (r) {
-                y = { error: r };
-              } finally {
-                try {
-                  S && !S.done && (p = A.return) && p.call(A);
-                } finally {
-                  if (y) throw y.error;
-                }
+      });
+    var flatImportedFunctions = __spreadArray(
+      [],
+      __read(this.program.elementsByDeclaration.values()),
+      false
+    )
+      .filter(function (el) {
+        return elementHasFlag(el, assemblyscript.CommonFlags.DECLARE);
+      })
+      .filter(function (el) {
+        return !isInternalElement(el);
+      })
+      .filter(function (v) {
+        return (
+          v.declaration.kind === assemblyscript.NodeKind.FUNCTIONDECLARATION
+        );
+      });
+    var typeIds = {};
+    var importedFunctions = {};
+    try {
+      for (
+        var flatImportedFunctions_1 = __values(flatImportedFunctions),
+          flatImportedFunctions_1_1 = flatImportedFunctions_1.next();
+        !flatImportedFunctions_1_1.done;
+        flatImportedFunctions_1_1 = flatImportedFunctions_1.next()
+      ) {
+        var importedFunction = flatImportedFunctions_1_1.value;
+        // An imported function with no instances is an unused imported function.
+        // Skip it.
+        if (!importedFunction.instances) {
+          continue;
+        }
+        if (
+          importedFunction.instances.size > 1 ||
+          !importedFunction.instances.has("")
+        ) {
+          throw Error("Can\u2019t import or export generic functions.");
+        }
+        var iFunction = importedFunction.instances.get("");
+        var external_module = void 0;
+        var external_name = void 0;
+        var decorators = iFunction.declaration.decorators;
+        if (decorators) {
+          try {
+            for (
+              var decorators_1 = ((e_3 = void 0), __values(decorators)),
+                decorators_1_1 = decorators_1.next();
+              !decorators_1_1.done;
+              decorators_1_1 = decorators_1.next()
+            ) {
+              var decorator = decorators_1_1.value;
+              if (decorator.name.text !== "external") continue;
+              if (!decorator.args) continue; // sanity check
+              if (decorator.args.length > 1) {
+                external_module = decorator.args[0].value;
+                external_name = decorator.args[1].value;
+              } else {
+                external_name = decorator.args[0].value;
               }
-            var j = E || u(C).internalName.split("/").slice(-1)[0];
-            O.hasOwnProperty(j) || (O[j] = {});
-            var D = C.name;
-            N
-              ? (D = N)
-              : C.parent &&
-                C.parent.kind === r.ElementKind.NAMESPACE &&
-                (D = C.parent.name + "." + C.name),
-              (O[j][D] = c(C)),
-              Object.assign(h, f(C));
+            }
+          } catch (e_3_1) {
+            e_3 = { error: e_3_1 };
+          } finally {
+            try {
+              if (
+                decorators_1_1 &&
+                !decorators_1_1.done &&
+                (_b = decorators_1["return"])
+              )
+                _b.call(decorators_1);
+            } finally {
+              if (e_3) throw e_3.error;
+            }
           }
         }
-      } catch (r) {
-        l = { error: r };
-      } finally {
-        try {
-          x && !x.done && (s = b.return) && s.call(b);
-        } finally {
-          if (l) throw l.error;
+        // To know under what module name an imported function will be expected,
+        // we have to find the containing module of the given function, take the
+        // internal name (which is effectively the file path without extension)
+        // and only take the part after the last `/`
+        // (i.e. the file name without extension).
+        var moduleName =
+          external_module ||
+          containingModule(iFunction).internalName.split("/").slice(-1)[0];
+        if (!importedFunctions.hasOwnProperty(moduleName)) {
+          importedFunctions[moduleName] = {};
         }
+        var importedFunctionName = iFunction.name;
+        if (external_name) {
+          importedFunctionName = external_name;
+        } else if (
+          iFunction.parent &&
+          iFunction.parent.kind === assemblyscript.ElementKind.NAMESPACE
+        ) {
+          importedFunctionName = iFunction.parent.name + "." + iFunction.name;
+        }
+        importedFunctions[moduleName][importedFunctionName] =
+          getFunctionTypeDescriptor(iFunction);
+        Object.assign(typeIds, extractTypeIdsFromFunction(iFunction));
       }
-      var F = {};
+    } catch (e_2_1) {
+      e_2 = { error: e_2_1 };
+    } finally {
       try {
-        for (var I = n(m), P = I.next(); !P.done; P = I.next()) {
-          var L = P.value;
-          if (L.instances.size > 1 || !L.instances.has(""))
-            throw Error("Can’t import or export generic functions.");
-          var R = L.instances.get("");
-          (F[R.name] = c(R)), Object.assign(h, f(R));
-        }
-      } catch (r) {
-        d = { error: r };
-      } finally {
-        try {
-          P && !P.done && (v = I.return) && v.call(I);
-        } finally {
-          if (d) throw d.error;
-        }
-      }
-      t.addCustomSection(
-        "as-bind_bindings",
-        new TextEncoder("utf8").encode(
-          JSON.stringify({
-            typeIds: h,
-            importedFunctions: O,
-            exportedFunctions: F
-          })
+        if (
+          flatImportedFunctions_1_1 &&
+          !flatImportedFunctions_1_1.done &&
+          (_a = flatImportedFunctions_1["return"])
         )
-      );
-    }),
-    s
-  );
-})(r.Transform);
-module.exports = y;
+          _a.call(flatImportedFunctions_1);
+      } finally {
+        if (e_2) throw e_2.error;
+      }
+    }
+    var exportedFunctions = {};
+    try {
+      for (
+        var flatExportedFunctions_1 = __values(flatExportedFunctions),
+          flatExportedFunctions_1_1 = flatExportedFunctions_1.next();
+        !flatExportedFunctions_1_1.done;
+        flatExportedFunctions_1_1 = flatExportedFunctions_1.next()
+      ) {
+        var exportedFunction = flatExportedFunctions_1_1.value;
+        if (
+          exportedFunction.instances.size > 1 ||
+          !exportedFunction.instances.has("")
+        ) {
+          throw Error("Can\u2019t import or export generic functions.");
+        }
+        var eFunction = exportedFunction.instances.get("");
+        exportedFunctions[eFunction.name] =
+          getFunctionTypeDescriptor(eFunction);
+        Object.assign(typeIds, extractTypeIdsFromFunction(eFunction));
+      }
+    } catch (e_4_1) {
+      e_4 = { error: e_4_1 };
+    } finally {
+      try {
+        if (
+          flatExportedFunctions_1_1 &&
+          !flatExportedFunctions_1_1.done &&
+          (_c = flatExportedFunctions_1["return"])
+        )
+          _c.call(flatExportedFunctions_1);
+      } finally {
+        if (e_4) throw e_4.error;
+      }
+    }
+    module.addCustomSection(
+      SECTION_NAME,
+      // @ts-ignore
+      new TextEncoder("utf8").encode(
+        JSON.stringify({
+          typeIds: typeIds,
+          importedFunctions: importedFunctions,
+          exportedFunctions: exportedFunctions
+        })
+      )
+    );
+  };
+  return AsBindTransform;
+})(transform.Transform);
+
+module.exports = AsBindTransform;

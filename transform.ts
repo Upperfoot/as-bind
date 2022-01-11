@@ -2,7 +2,6 @@ import {
   CommonFlags,
   NodeKind,
   ElementKind,
-  Transform,
   IdentifierExpression,
   FunctionPrototype,
   StringLiteralExpression,
@@ -10,8 +9,9 @@ import {
   Function,
   DeclaredElement,
   Type
-} from "visitor-as/as";
+} from "assemblyscript";
 import { TypeDef } from "./lib/types";
+import { Transform } from "assemblyscript/cli/transform";
 
 function isInternalElement(element: DeclaredElement) {
   return element.internalName.startsWith("~");
